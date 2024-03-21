@@ -1,5 +1,6 @@
 const User = require("../modal/User");
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 const Joi = require('joi');
 
@@ -12,25 +13,29 @@ const Joi = require('joi');
 
 
 
-const login=async(req,res,next)=>{
-  try{
-    let email = req.body.email;
-    let password=req.body.password;
-    let user =await User.findOne({email})
-    if(!user){
-      return res.status(401).send( "Email does not exist");
+const login=async(req,res)=>{
+  // try{
+
+    let user = await User.findOne({email:req.body.email}).select('+password');
+    return res.send(user)
+    if(user){
+      let matched=await bcrypt.compare(req.body.password,user.password);
+      if(matched){
+        user = user.toObject();
+        user.password=undefined;
+        const token = jwt.sign(user,"yourSecreteSignature")
+        return res.send({token,user})
     }
-    let  validPassword = await bcrypt.compare(password,user.password)
-    if(validPassword){
-        //create token
-        res.send("Login Successful");
-    }else{
-       return res.status(401).send("Wrong Password")
-    }
-    }catch(err){
-    next(err);
   }
-  }
+  return res.status(401).send({
+    msg: "Email or password is wrong"   
+  })
+}
+    // }
+  //   }catch(err){
+  //   next(err);
+  // }
+  // }
   
   
 
@@ -38,14 +43,18 @@ const login=async(req,res,next)=>{
 const signupValidationSchema = Joi.object({
   name: Joi.string().min(3).max(30).required(),
   email: Joi.string().email().min(3).max(30).required(),
-  password: Joi.string().min(3).max(30).required(),
+  password: Joi.string()
+  .min(8)
+  .pattern(new RegExp("^[a-zA-Z0-9]{3,30}$"))
+  .required(),
+  // role: Joi.string().valid("buyer","seller").required() ,
 })
 
 const signup = async (req, res, next) => {
   try {
-    const value = await signupValidationSchema.validateAsync(req.body, {
+    await signupValidationSchema.validateAsync(req.body, {
       allowUnknown: true,
-      abortEarly: false
+      abortEarly: false,
     })
   } catch (err) {
     return res.status(400).send({
@@ -59,22 +68,29 @@ const signup = async (req, res, next) => {
       })
     })
   }
-  try {
+//   try {
 
-    let userExist=await User.findOne({email : req.body.email});
-    if(userExist){
-      return res.status(400).send("Email Already Exits.")
- }
-    
-
+//     let userExist=await User.findOne({email : req.body.email});
+//     if(userExist){
+//       return res.status(400).send({ msg:"Validation error",
+//         errors:[{field: "email",msg:"already used"}],
+//       })
+//  }
+try{
     let hashed = await bcrypt.hash(req.body.password, 10);
-    let user = await User.create({ ...req.body, password: hashed });
+    let user = await User.create({...req.body,password: hashed });
     user.password=undefined;
     res.send(user);
   }
   catch (err) {
     next(err)
   };
+
+
+
+
+
+  
 
 
 
