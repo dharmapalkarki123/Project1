@@ -2,7 +2,11 @@ const mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 const ObjectId =  Schema.ObjectId;
 const ProductSchema = new Schema({
-  title: { 
+  inStock:{
+      type:Number,
+      default:0,
+  },
+title: { 
     type: String, 
     required: true,
   minLength:3, 
